@@ -1,5 +1,22 @@
-# Created by https://www.toptal.com/developers/gitignore/api/linux,macos,svelte,windows,visualstudiocode,node
-# Edit at https://www.toptal.com/developers/gitignore?templates=linux,macos,svelte,windows,visualstudiocode,node
+.pnpm-store
+
+# Created by https://www.toptal.com/developers/gitignore/api/visualstudiocode,node,windows,linux,macos,git
+# Edit at https://www.toptal.com/developers/gitignore?templates=visualstudiocode,node,windows,linux,macos,git
+
+### Git ###
+# Created by git for backups. To disable backups in Git:
+# $ git config --global mergetool.keepBackup false
+*.orig
+
+# Created by git when using merge tools for conflicts
+*.BACKUP.*
+*.BASE.*
+*.LOCAL.*
+*.REMOTE.*
+*_BACKUP_*.txt
+*_BASE_*.txt
+*_LOCAL_*.txt
+*_REMOTE_*.txt
 
 ### Linux ###
 *~
@@ -189,13 +206,6 @@ dist
 # SvelteKit build / generate output
 .svelte-kit
 
-### Svelte ###
-# gitignore template for the SvelteKit, frontend web component framework
-# website: https://kit.svelte.dev/
-
-.svelte-kit/
-package
-
 ### VisualStudioCode ###
 .vscode/*
 !.vscode/settings.json
@@ -241,4 +251,4 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
-# End of https://www.toptal.com/developers/gitignore/api/linux,macos,svelte,windows,visualstudiocode,node
+# End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,node,windows,linux,macos,git
