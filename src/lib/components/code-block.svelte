@@ -1,16 +1,14 @@
 <script lang="ts" module>
   import { createHighlighterCoreSync } from 'shiki/core';
   import { createJavaScriptRegexEngine } from 'shiki/engine/javascript';
-  import console from 'shiki/langs/console.mjs';
-  import css from 'shiki/langs/css.mjs';
-  import html from 'shiki/langs/html.mjs';
-  import js from 'shiki/langs/javascript.mjs';
+  import langBash from 'shiki/langs/bash.mjs';
+  import langConsole from 'shiki/langs/console.mjs';
   import themeDarkPlus from 'shiki/themes/dark-plus.mjs';
 
   const shiki = createHighlighterCoreSync({
     engine: createJavaScriptRegexEngine(),
     themes: [themeDarkPlus],
-    langs: [console, html, css, js],
+    langs: [langConsole, langBash],
   });
 
   interface CodeBlockProps {
