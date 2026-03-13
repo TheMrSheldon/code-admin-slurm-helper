@@ -43,7 +43,7 @@
 		{@const Icon = opt.icon}
 		<button
 			type="button"
-			class="card card-hover divide-y divide-surface-200-800 overflow-hidden border-[1px] preset-filled-surface-100-900
+			class="card card-hover w-32 divide-y divide-surface-200-800 overflow-hidden border-[1px] preset-filled-surface-100-900
 				{selected?.id === opt.id ? 'preset-outlined-primary-500' : 'border-surface-200-800'}"
 			onclick={() => setSelected(opt)}
 		>
@@ -52,7 +52,7 @@
 				<span class="font-semibold text-sm">{opt.label}</span>
 			</article>
 			<footer class="px-3 py-1">
-				<small class="opacity-60">{opt.description}</small>
+				<small class="opacity-60 text-xs">{opt.description}</small>
 			</footer>
 		</button>
 	{/each}
