@@ -10,9 +10,10 @@
 		defaultOptions: {
 			port: 1234,
 			password: 'changeme',
-			publicKey: ''
+			publicKey: '',
+			sftp: false
 		},
-		buildCommand(base, { port, password, publicKey }, { debugMode }) {
+		buildCommand(base, { port, password, publicKey, sftp }, { debugMode }) {
 			const authSteps: string[] = [];
 			if (password) authSteps.push(`echo root:${password} | chpasswd`);
 			if ((publicKey as string).trim())
@@ -27,22 +28,22 @@
 			// the security check kills the connection. Dropbear has no privsep and works fine.
 			const hostKey = '"$HOME/.cache/webis-slurm-tool/ssh/dropbear_ed25519_host_key"';
 			// -v adds per-connection verbose logging in debug mode
-			const dropbearCmd = `dropbear -F -E${debugMode ? ' -v' : ''} -p ${port} -r ${hostKey}`;
+			const dropbearCmd = `while true; do dropbear -F -E${debugMode ? ' -v' : ''} -p ${port} -r ${hostKey}; sleep 2; done`;
 
 			const steps = [
 				debugMode ? 'set -x' : null,
 				'apt-get update -qq',
-				'apt-get install -y -qq dropbear libpam-sss',
+				`apt-get install -y -qq dropbear libpam-sss${sftp ? ' openssh-sftp-server' : ''}`,
 				// Write a Dropbear-specific PAM config: pam_unix first (root + local accounts via
 				// /etc/shadow), then pam_sss (LDAP users). Bypasses pam_securetty so root can
 				// log in over pts without being blocked.
-				"printf '" +
+				'printf "' +
 					'auth\\t[success=done default=ignore]\\tpam_unix.so nullok\\n' +
 					'auth\\t[success=done default=ignore]\\tpam_sss.so\\n' +
 					'auth\\trequired\\t\\t\\tpam_deny.so\\n' +
 					'account\\trequired\\t\\tpam_unix.so\\n' +
 					'account\\t[default=bad success=ok user_unknown=ignore]\\tpam_sss.so\\n' +
-					"session\\trequired\\t\\tpam_unix.so\\n' > /etc/pam.d/dropbear",
+					'session\\trequired\\t\\tpam_unix.so\\n" > /etc/pam.d/dropbear',
 				// Under --container-remap-root $HOME may be remapped to /root, so we resolve
 				// the real cluster home via getent using $SLURM_JOB_USER (always set by Slurm).
 				'_rh=$(getent passwd "$SLURM_JOB_USER" 2>/dev/null | cut -d: -f6); ' +
@@ -63,21 +64,22 @@
 		},
 		buildConnectInstructions({ port }) {
 			return (
-				`# 1. Note the compute node hostname printed in the terminal (e.g. gpu001)\n` +
+				`# 1. Note the compute node hostname printed in the terminal (e.g. === SSH ready: root@gammaweb06 port 1234 ===)\n` +
 				`# 2. Connect as root (Slurm maps you to root inside the container):\n` +
 				`#    Your existing cluster SSH keys are copied in automatically.\n` +
-				`ssh -J YOUR_LOGIN_NODE -p ${port} root@COMPUTE_NODE\n` +
-				`#\n` +
-				`# Alternatively, use port forwarding:\n` +
-				`ssh -L ${port}:COMPUTE_NODE:${port} YOUR_LOGIN_NODE\n` +
-				`ssh -p ${port} root@localhost`
+				`ssh root@COMPUTE_NODE -p ${port}\n`
 			);
 		}
+
+		/** Connect via VSCode:
+		 *  - Strg+Shift+P: `>Remote-SSH: Connect to Host...`
+		 *  - Enter root@<NODE>.medien.uni-weimar.de:<PORT>; Enter password when prompted
+		*/
 	};
 </script>
 
 <script lang="ts">
-	let { options }: { options: { port: number; password: string; publicKey: string } } = $props();
+	let { options }: { options: { port: number; password: string; publicKey: string; sftp: boolean } } = $props();
 </script>
 
 <div class="input-group grid-cols-[auto_1fr]">
@@ -99,4 +101,10 @@
 		bind:value={options.publicKey}
 		placeholder="ssh-ed25519 AAAA… (optional, added alongside password)"
 	/>
+
+	<div class="ig-cell justify-start preset-tonal">SFTP</div>
+	<label class="ig-cell gap-2">
+		<input type="checkbox" class="checkbox" bind:checked={options.sftp} />
+		<span class="text-sm">Install SFTP server (required for VSCode Remote)</span>
+	</label>
 </div>

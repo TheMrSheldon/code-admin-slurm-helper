@@ -13,7 +13,7 @@ import type { SoftwareType } from './types';
  */
 export const SOFTWARE_TYPES: SoftwareType[] = [
 	{ ...bashDef, OptionsComponent: BashOptions },
+	{ ...sshDef, OptionsComponent: SshOptions },
 	{ ...vscodeDef, OptionsComponent: VscodeOptions },
-	{ ...jupyterDef, OptionsComponent: JupyterOptions },
-	{ ...sshDef, OptionsComponent: SshOptions }
+	{ ...jupyterDef, OptionsComponent: JupyterOptions }
 ];
