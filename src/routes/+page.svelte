@@ -3,6 +3,7 @@
 	import { Collapsible } from '@skeletonlabs/skeleton-svelte';
 	import { MessageCircleQuestionMarkIcon, Check, ChevronLeft, ChevronRight } from '@lucide/svelte';
 	import SoftwarePicker from '$lib/components/software-picker.svelte';
+	import { SOFTWARE_TYPES, type SoftwareType } from '$lib/software';
 
 	// Wizard
 	let step = $state(1);
@@ -21,27 +22,14 @@
 	let flags = $state({ writable: true, remaproot: true });
 	let containerMounts = $state('');
 
-	type SoftwareOption = { id: string; label: string };
+	// Software selection — options are reset to defaults when the software type changes
+	let selectedSoftware = $state<SoftwareType | null>(null);
+	let softwareOptions = $state<Record<string, unknown>>({});
 
-	// Software selection
-	let selectedSoftware = $state<SoftwareOption | null>(null);
-	let port = $state(1234);
-
-	// Bash options
-	let bashCommand = $state('');
-	let bashInteractive = $state(true);
-
-	// VS Code options
-	let vsPassword = $state('');
-	let vsExtensions = $state('');
-
-	// Jupyter options
-	let jupyterDir = $state('/workspace');
-	let jupyterToken = $state('');
-
-	// SSH options
-	let sshPassword = $state('changeme');
-	let sshPublicKey = $state('');
+	function selectSoftware(sw: SoftwareType) {
+		selectedSoftware = sw;
+		softwareOptions = { ...sw.defaultOptions };
+	}
 
 	// Global
 	let debugMode = $state(false);
@@ -74,114 +62,13 @@
 	}
 
 	let command = $derived.by(() => {
-		const base = buildSrunBase();
 		if (!selectedSoftware) return '# Select a software type above';
-
-		const dbg = debugMode ? 'set -x; ' : '';
-
-		if (selectedSoftware.id === 'bash') {
-			const prefix = bashInteractive ? '--pty bash' : 'bash';
-			if (bashCommand) return `${base} \\\n\t${prefix} -c '${dbg}${bashCommand}'`;
-			if (debugMode) return `${base} \\\n\t--pty bash -c '${dbg}'`;
-			return `${base} \\\n\t${prefix}`;
-		}
-
-		if (selectedSoftware.id === 'vscode') {
-			const authFlag = vsPassword ? '--auth password' : '--auth none';
-			// Use double quotes — single quotes inside a single-quoted bash -c '...' break parsing
-			const pwExport = vsPassword ? `export PASSWORD="${vsPassword}"; ` : '';
-			const extInstall = vsExtensions
-				? vsExtensions
-						.split(',')
-						.map((e) => `code-server --install-extension ${e.trim()}`)
-						.join('; ') + '; '
-				: '';
-			return (
-				`${base} \\\n\t--pty bash -c ` +
-				`'${dbg}${pwExport}apt-get update -qq; ` +
-				`apt-get install -y -qq curl; ` +
-				`curl -fsSL https://code-server.dev/install.sh | sh; ` +
-				`${extInstall}` +
-				`code-server --bind-addr 0.0.0.0:${port} ${authFlag} --disable-telemetry'`
-			);
-		}
-
-		if (selectedSoftware.id === 'jupyter') {
-			// Double quotes here too — same reason
-			const tokenPart = `--ServerApp.token="${jupyterToken}"`;
-			return (
-				`${base} \\\n\t--pty bash -c ` +
-				`'${dbg}pip install -q jupyterlab 2>/dev/null; ` +
-				`jupyter lab --ip=0.0.0.0 --port=${port} --no-browser ${tokenPart} --notebook-dir=${jupyterDir}'`
-			);
-		}
-
-		if (selectedSoftware.id === 'ssh') {
-			// openssh-server fails in remapped-root containers: after privsep drops to the sshd
-			// system user, it verifies CAP_SETGID is gone — but container root retains it, so
-			// the security check kills the connection. Dropbear has no privsep and works fine.
-			const authSteps: string[] = [];
-			if (sshPassword) authSteps.push(`echo root:${sshPassword} | chpasswd`);
-			if (sshPublicKey.trim())
-				authSteps.push(
-					`mkdir -p /root/.ssh && ` +
-						`echo "${sshPublicKey.trim()}" >> /root/.ssh/authorized_keys && ` +
-						`chmod 700 /root/.ssh && chmod 600 /root/.ssh/authorized_keys`
-				);
-			// Dropbear allows password and key auth simultaneously by default
-			// -v adds per-connection verbose logging in debug mode
-			// Host key is persisted in $HOME so the client's known_hosts entry stays valid
-			// across job restarts, avoiding "REMOTE HOST IDENTIFICATION HAS CHANGED" warnings.
-			const hostKey = '"$HOME/.cache/webis-slurm-tool/ssh/dropbear_ed25519_host_key"';
-			const dropbearCmd = `dropbear -F -E${debugMode ? ' -v' : ''} -p ${port} -r ${hostKey}`;
-			const steps = [
-				debugMode ? 'set -x' : null,
-				'apt-get update -qq',
-				'apt-get install -y -qq dropbear',
-				// Slurm sets $HOME to the real user home even under --container-remap-root,
-				// so we can seed root's authorized_keys from the cluster home directory.
-				'mkdir -p /root/.ssh; cp "$HOME/.ssh/authorized_keys" /root/.ssh/authorized_keys 2>/dev/null; chmod 700 /root/.ssh; chmod 600 /root/.ssh/authorized_keys 2>/dev/null; true',
-				...authSteps,
-				// Persist the host key so reconnections don't trigger "host key changed" warnings
-				`mkdir -p "$HOME/.cache/webis-slurm-tool/ssh" && { [ -f ${hostKey} ] || dropbearkey -t ed25519 -f ${hostKey}; }`,
-				`echo && echo "=== SSH ready: root@$(hostname) port ${port} ===" && echo`,
-				dropbearCmd
-			]
-				.filter((s) => s !== null)
-				.join(' && \\\n\t\t');
-			return `${base} \\\n\t--pty bash -c '\n\t\t${steps}\n\t'`;
-		}
-
-		return '# Unknown software';
+		return selectedSoftware.buildCommand(buildSrunBase(), softwareOptions, { debugMode });
 	});
 
 	let connectInstructions = $derived.by(() => {
-		if (!selectedSoftware) return '';
-
-		if (selectedSoftware.id === 'vscode' || selectedSoftware.id === 'jupyter') {
-			return (
-				`# 1. Note the compute node hostname printed in the terminal (e.g. gpu001)\n` +
-				`# 2. On your LOCAL machine, open an SSH tunnel:\n` +
-				`ssh -L ${port}:COMPUTE_NODE:${port} YOUR_LOGIN_NODE\n` +
-				`# 3. Open in your browser:\n` +
-				`#    http://localhost:${port}`
-			);
-		}
-
-		if (selectedSoftware.id === 'ssh') {
-			return (
-				`# 1. Note the compute node hostname printed in the terminal (e.g. gpu001)\n` +
-				`# 2. Connect as root (Slurm maps you to root inside the container):\n` +
-				`#    Your existing cluster SSH keys are copied in automatically.\n` +
-				`ssh -J YOUR_LOGIN_NODE -p ${port} root@COMPUTE_NODE\n` +
-				`#\n` +
-				`# Alternatively, use port forwarding:\n` +
-				`ssh -L ${port}:COMPUTE_NODE:${port} YOUR_LOGIN_NODE\n` +
-				`ssh -p ${port} root@localhost`
-			);
-		}
-
-		return '';
+		if (!selectedSoftware || !selectedSoftware.buildConnectInstructions) return '';
+		return selectedSoftware.buildConnectInstructions(softwareOptions, { debugMode });
 	});
 </script>
 
@@ -245,94 +132,15 @@
 					<p class="mt-0.5 text-sm opacity-50">Choose a software type, then configure it below.</p>
 				</div>
 				<SoftwarePicker
+					options={SOFTWARE_TYPES}
 					selected={selectedSoftware}
-					setSelected={(item: SoftwareOption) => {
-						selectedSoftware = item;
-					}}
+					setSelected={selectSoftware}
 				>
 					{#if selectedSoftware == null}
 						<p class="text-sm opacity-40">Select a software type above to configure options.</p>
-					{:else if selectedSoftware.id === 'bash'}
-						<div class="input-group grid-cols-[auto_1fr]">
-							<div class="ig-cell justify-start preset-tonal">Command</div>
-							<input
-								class="ig-input font-mono text-sm"
-								type="text"
-								bind:value={bashCommand}
-								placeholder="Leave empty for an interactive shell"
-							/>
-
-							<div class="ig-cell justify-start preset-tonal">Options</div>
-							<div class="ig-cell">
-								<label class="flex cursor-pointer items-center gap-2">
-									<input class="checkbox" type="checkbox" bind:checked={bashInteractive} />
-									<span>Allocate a pseudo-terminal (--pty)</span>
-								</label>
-							</div>
-						</div>
-					{:else if selectedSoftware.id === 'vscode'}
-						<div class="input-group grid-cols-[auto_1fr]">
-							<div class="ig-cell justify-start preset-tonal">Port</div>
-							<input class="ig-input" type="number" min="1024" max="65535" bind:value={port} />
-
-							<div class="ig-cell justify-start preset-tonal">Password</div>
-							<input
-								class="ig-input"
-								type="text"
-								bind:value={vsPassword}
-								placeholder="Leave empty for no authentication"
-							/>
-
-							<div class="ig-cell justify-start preset-tonal">Extensions</div>
-							<input
-								class="ig-input font-mono text-sm"
-								type="text"
-								bind:value={vsExtensions}
-								placeholder="ms-python.python, ms-toolsai.jupyter"
-							/>
-						</div>
-					{:else if selectedSoftware.id === 'jupyter'}
-						<div class="input-group grid-cols-[auto_1fr]">
-							<div class="ig-cell justify-start preset-tonal">Port</div>
-							<input class="ig-input" type="number" min="1024" max="65535" bind:value={port} />
-
-							<div class="ig-cell justify-start preset-tonal">Directory</div>
-							<input
-								class="ig-input font-mono text-sm"
-								type="text"
-								bind:value={jupyterDir}
-								placeholder="/workspace"
-							/>
-
-							<div class="ig-cell justify-start preset-tonal">Token</div>
-							<input
-								class="ig-input"
-								type="text"
-								bind:value={jupyterToken}
-								placeholder="Leave empty for no authentication"
-							/>
-						</div>
-					{:else if selectedSoftware.id === 'ssh'}
-						<div class="input-group grid-cols-[auto_1fr]">
-							<div class="ig-cell justify-start preset-tonal">Port</div>
-							<input class="ig-input" type="number" min="1024" max="65535" bind:value={port} />
-
-							<div class="ig-cell justify-start preset-tonal">Password</div>
-							<input
-								class="ig-input"
-								type="text"
-								bind:value={sshPassword}
-								placeholder="Leave empty to disable password auth"
-							/>
-
-							<div class="ig-cell justify-start preset-tonal">Public Key</div>
-							<input
-								class="ig-input font-mono text-xs"
-								type="text"
-								bind:value={sshPublicKey}
-								placeholder="ssh-ed25519 AAAA… (optional, added alongside password)"
-							/>
-						</div>
+					{:else}
+						{@const OptionsComponent = selectedSoftware.OptionsComponent}
+						<OptionsComponent options={softwareOptions} />
 					{/if}
 				</SoftwarePicker>
 			</section>

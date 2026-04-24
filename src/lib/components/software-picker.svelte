@@ -1,41 +1,15 @@
 <script lang="ts">
 	import { type Snippet } from 'svelte';
-	import { Laptop, Terminal, NotebookText, Server } from '@lucide/svelte';
+	import type { SoftwareType } from '$lib/software/types';
 
 	interface SoftwarePickerProps {
 		children: Snippet;
-		selected?: any;
-		setSelected: any;
+		options: SoftwareType[];
+		selected?: SoftwareType | null;
+		setSelected: (item: SoftwareType) => void;
 	}
 
-	let { children, selected, setSelected }: SoftwarePickerProps = $props();
-
-	const options = [
-		{
-			id: 'bash',
-			label: 'Bash Shell',
-			icon: Terminal,
-			description: 'Open an interactive shell'
-		},
-		{
-			id: 'vscode',
-			label: 'VS Code',
-			icon: Laptop,
-			description: 'Run VS Code in the browser'
-		},
-		{
-			id: 'jupyter',
-			label: 'Jupyter Lab',
-			icon: NotebookText,
-			description: 'Launch a notebook server'
-		},
-		{
-			id: 'ssh',
-			label: 'SSH Server',
-			icon: Server,
-			description: 'Connect with your own IDE'
-		}
-	];
+	let { children, options, selected, setSelected }: SoftwarePickerProps = $props();
 </script>
 
 <div class="flex flex-row flex-wrap gap-3">
