@@ -55,8 +55,7 @@
 
 <!-- Wrapper -->
 <div
-  class="{base} {rounded} {shadow} {classes} {preBase} {prePadding} {preClasses}
-         bg-surface-100 dark:bg-surface-800 relative"
+  class="{base} {rounded} {shadow} {classes} {preBase} {prePadding} {preClasses} relative"
 >
 
   <!-- Copy Button -->
@@ -77,7 +76,7 @@
 
   <!-- Highlighted code -->
   <div
-    class="code-wrapper"
+    class="code-wrapper overflow-x-auto text-xs bg-[#1E1E1E] [&>pre]:whitespace-pre [&>pre]:min-w-full"
   >
     {@html shiki.codeToHtml(code, {
       lang,
