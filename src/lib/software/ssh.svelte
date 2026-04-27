@@ -15,7 +15,7 @@
 		},
 		buildCommand(base, { port, password, publicKey, sftp }, { debugMode }) {
 			const authSteps: string[] = [];
-			if (password) authSteps.push(`echo root:${password} | chpasswd`);
+			if (password) authSteps.push(`usermod -p "$(openssl passwd -6 '${password}')" root`);
 			if ((publicKey as string).trim())
 				authSteps.push(
 					`mkdir -p /root/.ssh && ` +
@@ -28,22 +28,12 @@
 			// the security check kills the connection. Dropbear has no privsep and works fine.
 			const hostKey = '"$HOME/.cache/webis-slurm-tool/ssh/dropbear_ed25519_host_key"';
 			// -v adds per-connection verbose logging in debug mode
-			const dropbearCmd = `while true; do dropbear -F -E${debugMode ? ' -v' : ''} -p ${port} -r ${hostKey}; sleep 2; done`;
+			const dropbearCmd = `exec dropbear -F -E${debugMode ? ' -v' : ''} -p ${port} -r ${hostKey}`;
 
 			const steps = [
 				debugMode ? 'set -x' : null,
 				'apt-get update -qq',
 				`apt-get install -y -qq dropbear libpam-sss${sftp ? ' openssh-sftp-server' : ''}`,
-				// Write a Dropbear-specific PAM config: pam_unix first (root + local accounts via
-				// /etc/shadow), then pam_sss (LDAP users). Bypasses pam_securetty so root can
-				// log in over pts without being blocked.
-				'printf "' +
-					'auth\\t[success=done default=ignore]\\tpam_unix.so nullok\\n' +
-					'auth\\t[success=done default=ignore]\\tpam_sss.so\\n' +
-					'auth\\trequired\\t\\t\\tpam_deny.so\\n' +
-					'account\\trequired\\t\\tpam_unix.so\\n' +
-					'account\\t[default=bad success=ok user_unknown=ignore]\\tpam_sss.so\\n' +
-					'session\\trequired\\t\\tpam_unix.so\\n" > /etc/pam.d/dropbear',
 				// Under --container-remap-root $HOME may be remapped to /root, so we resolve
 				// the real cluster home via getent using $SLURM_JOB_USER (always set by Slurm).
 				'_rh=$(getent passwd "$SLURM_JOB_USER" 2>/dev/null | cut -d: -f6); ' +
@@ -54,13 +44,16 @@
 				// Host key is persisted in $HOME so the client's known_hosts entry stays valid
 				// across job restarts, avoiding "REMOTE HOST IDENTIFICATION HAS CHANGED" warnings.
 				`mkdir -p "$HOME/.cache/webis-slurm-tool/ssh" && { [ -f ${hostKey} ] || dropbearkey -t ed25519 -f ${hostKey}; }`,
+				// Export the Slurm job environment so SSH sessions inherit PATH, LD_LIBRARY_PATH,
+				// CUDA_VISIBLE_DEVICES, conda activations, etc.
+				'export -p > /etc/profile.d/slurm-env.sh',
 				`echo && echo "=== SSH ready: root@$(hostname) port ${port} ===" && echo`,
 				dropbearCmd
 			]
 				.filter((s) => s !== null)
 				.join(' && \\\n\t\t');
 
-			return `${base} \\\n\t--pty bash -c '\n\t\t${steps}\n\t'`;
+			return `${base} --ntasks=1\\\n\t--pty bash -c '\n\t\t${steps}\n\t'`;
 		},
 		buildConnectInstructions({ port }) {
 			return (
