@@ -1,6 +1,7 @@
 <script module lang="ts">
 	import { NotebookText } from '@lucide/svelte';
-	import type { SoftwareDefinition } from './types';
+	import type { SoftwareDefinition, AnnotatedCommand } from './types';
+	import { buildBaseSegments } from './builder';
 
 	export const jupyter: SoftwareDefinition = {
 		id: 'jupyter',
@@ -12,15 +13,39 @@
 			dir: '/workspace',
 			token: ''
 		},
-		buildCommand(base, { port, dir, token }, { debugMode }) {
-			const dbg = debugMode ? 'set -x; ' : '';
+		buildCommand(ctx, { port, dir, token }): AnnotatedCommand {
+			const segments = buildBaseSegments(ctx);
+			const dbg = ctx.debugMode ? 'set -x; ' : '';
 			// Double quotes here too — same reason as vscode
 			const tokenPart = `--ServerApp.token="${token}"`;
-			return (
-				`${base} \\\n\t--pty bash -c ` +
-				`'${dbg}pip install -q jupyterlab 2>/dev/null; ` +
-				`jupyter lab --ip=0.0.0.0 --port=${port} --no-browser ${tokenPart} --notebook-dir=${dir}'`
+
+			segments.push(
+				{
+					code: ` \\\n\t--pty bash -c '${dbg}`,
+					annotation: {
+						title: 'Pseudo-terminal shell',
+						description:
+							'Allocates a pseudo-terminal and runs the setup script inline. --pty is needed so the terminal stays alive while Jupyter runs.'
+					}
+				},
+				{
+					code: `pip install -q jupyterlab 2>/dev/null`,
+					annotation: {
+						title: 'Install Jupyter Lab',
+						description:
+							'Installs Jupyter Lab silently at runtime. Output is suppressed with -q and 2>/dev/null to keep the terminal clean. This runs each time the job starts.'
+					}
+				},
+				{
+					code: `; jupyter lab --ip=0.0.0.0 --port=${port} --no-browser ${tokenPart} --notebook-dir=${dir}'`,
+					annotation: {
+						title: 'Start Jupyter Lab',
+						description: `--ip=0.0.0.0 allows connections from outside localhost (required for SSH tunneling). --no-browser skips opening a browser on the compute node. --notebook-dir sets the working directory to ${dir}.`
+					}
+				}
 			);
+
+			return { jobType: 'srun', segments };
 		},
 		buildConnectInstructions({ port }) {
 			return (

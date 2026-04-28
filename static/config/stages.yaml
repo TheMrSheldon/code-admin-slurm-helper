@@ -1,0 +1,52 @@
+stages:
+  - id: debugging
+    label: Debugging / Exploration
+    description: Quick tests, interactive debugging, and code exploration
+    hardware_defaults:
+      cpus: 2
+      ram_gb: 32
+      gpu: "2g.10gb"
+      time: "4:00:00"
+
+  - id: training
+    label: Model Training
+    description: Training machine learning models on datasets
+    hardware_defaults:
+      cpus: 8
+      ram_gb: 128
+      gpu: "ampere"
+      time: "1-00:00:00"
+    sub_questions:
+      - id: model_size
+        label: How large is your model?
+        options:
+          - label: "Small (< 1B parameters)"
+            hardware_overrides:
+              gpu: "3g.20gb"
+              ram_gb: 64
+          - label: "Medium (1B – 10B parameters)"
+            hardware_overrides:
+              gpu: "ampere"
+              ram_gb: 128
+          - label: "Large (> 10B parameters)"
+            hardware_overrides:
+              gpu: "hopper"
+              ram_gb: 256
+
+  - id: inference
+    label: Inference / Evaluation
+    description: Running model inference, evaluation, or benchmarking
+    hardware_defaults:
+      cpus: 4
+      ram_gb: 64
+      gpu: "3g.20gb"
+      time: "8:00:00"
+
+  - id: data
+    label: Data Processing
+    description: Processing, transforming, or analyzing large datasets
+    hardware_defaults:
+      cpus: 8
+      ram_gb: 128
+      gpu: ""
+      time: "8:00:00"

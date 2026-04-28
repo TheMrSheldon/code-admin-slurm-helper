@@ -1,0 +1,40 @@
+interfaces:
+  - id: shell
+    label: Interactive Shell
+    description: Open a terminal directly on the compute node via srun
+    software_id: bash
+    job_type: srun
+
+  - id: ssh
+    label: SSH
+    description: Connect via SSH from any client or terminal
+    software_id: ssh
+    job_type: srun
+
+  - id: vscode
+    label: VSCode Remote
+    description: Connect using the VSCode Remote SSH extension
+    software_id: ssh
+    job_type: srun
+    software_option_overrides:
+      sftp: true
+
+  - id: pycharm
+    label: PyCharm Remote
+    description: Connect using PyCharm Remote Development (Gateway)
+    software_id: ssh
+    job_type: srun
+    software_option_overrides:
+      sftp: true
+
+  - id: jupyter
+    label: Jupyter Lab
+    description: Launch a browser-based notebook server
+    software_id: jupyter
+    job_type: srun
+
+  - id: batch
+    label: Batch Job (no interface)
+    description: Submit a job script that runs unattended in the background via sbatch
+    software_id: bash
+    job_type: sbatch
