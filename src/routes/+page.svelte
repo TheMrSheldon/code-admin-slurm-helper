@@ -11,7 +11,7 @@
 
 	// Hardware
 	let cpupertask = $state(2);
-	let ramgb = $state(32);
+	let ramgb = $state(64);
 	let gres = $state('2g.10gb');
 	let timeLimit = $state('4:00:00');
 	let partition = $state('');

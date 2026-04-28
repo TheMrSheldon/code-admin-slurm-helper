@@ -30,6 +30,8 @@
 			// -v adds per-connection verbose logging in debug mode
 			const dropbearCmd = `exec dropbear -F -E${debugMode ? ' -v' : ''} -p ${port} -r ${hostKey}`;
 
+			// TODO: export VSCODE_AGENT_FOLDER="/var/tmp/${SLURM_JOB_USER}/vscode_agent
+
 			const steps = [
 				debugMode ? 'set -x' : null,
 				'apt-get update -qq',
@@ -44,10 +46,8 @@
 				// Host key is persisted in $HOME so the client's known_hosts entry stays valid
 				// across job restarts, avoiding "REMOTE HOST IDENTIFICATION HAS CHANGED" warnings.
 				`mkdir -p "$HOME/.cache/webis-slurm-tool/ssh" && { [ -f ${hostKey} ] || dropbearkey -t ed25519 -f ${hostKey}; }`,
-				// Export the Slurm job environment so SSH sessions inherit PATH, LD_LIBRARY_PATH,
-				// CUDA_VISIBLE_DEVICES, conda activations, etc.
-				'export -p > /etc/profile.d/slurm-env.sh',
-				`echo && echo "=== SSH ready: root@$(hostname) port ${port} ===" && echo`,
+				`printf "\\n\\033[1;32m=== SSH ready: root@%s port ${port} ===\\033[0m\\n\\n" "$(hostname)"`,
+				`_vsc_url="vscode://vscode-remote/ssh-remote+root@$(hostname).medien.uni-weimar.de:${port}$HOME" && printf "Open in VSCode: \\033[1;36m\\033]8;;%s\\033\\\\\\\\%s\\033]8;;\\033\\\\\\\\\\033[0m\\n\\n" "$_vsc_url" "$_vsc_url"`,
 				dropbearCmd
 			]
 				.filter((s) => s !== null)
@@ -65,8 +65,13 @@
 		}
 
 		/** Connect via VSCode:
-		 *  - Strg+Shift+P: `>Remote-SSH: Connect to Host...`
-		 *  - Enter root@<NODE>.medien.uni-weimar.de:<PORT>; Enter password when prompted
+		 *  1. UI
+		 *     - Strg+Shift+P: `>Remote-SSH: Connect to Host...`
+		 *     - Enter root@<NODE>.medien.uni-weimar.de:<PORT>; Enter password when prompted
+		 *  2. CLI
+		 *     - E.g., code --remote ssh-remote+root@gammaweb06.medien.uni-weimar.de:1234 /mnt/ceph/storage/data-tmp/current/thagen
+		 *  3. URL
+		 *     - Click on the link that is printed to the console
 		*/
 	};
 </script>
