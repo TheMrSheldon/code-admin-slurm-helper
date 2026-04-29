@@ -10,6 +10,8 @@ interfaces:
     description: Connect via SSH from any client or terminal
     software_id: ssh
     job_type: srun
+    software_option_overrides:
+      ready_message: "\\n\\033[1;32m=== SSH ready: root@{hostname} port {port} ===\\033[0m\\n\\n"
 
   - id: vscode
     label: VSCode Remote
@@ -18,6 +20,7 @@ interfaces:
     job_type: srun
     software_option_overrides:
       sftp: true
+      ready_message: "\\n\\033[1;36mOpen in VSCode:\\033[0m vscode://vscode-remote/ssh-remote+root@{hostname}.medien.uni-weimar.de:{port}{home}\\n\\n"
 
   - id: pycharm
     label: PyCharm Remote
@@ -26,6 +29,8 @@ interfaces:
     job_type: srun
     software_option_overrides:
       sftp: true
+      ready_message: "\\n\\033[1;32m=== SSH ready: root@{hostname} port {port} ===\\033[0m\\n\\n"
+      pycharm_message: "\\n\\033[1;32m=== PyCharm Gateway ===\\033[0m\\n  Host: {hostname}.medien.uni-weimar.de  Port: {port}  User: root\\n\\n"
 
   - id: jupyter
     label: Jupyter Lab
