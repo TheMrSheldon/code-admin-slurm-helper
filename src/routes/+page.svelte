@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import CodeBlock from '$lib/components/code-block.svelte';
 	import AnnotatedCodeBlock from '$lib/components/annotated-code-block.svelte';
+	import FlipCard from '$lib/components/flip-card.svelte';
 	import { Collapsible } from '@skeletonlabs/skeleton-svelte';
 	import {
 		MessageCircleQuestionMarkIcon,
@@ -137,6 +138,11 @@
 		timeLimit = stage.hardware_defaults.time;
 	}
 
+	function unselectStage() {
+		selectedStage = null;
+		subAnswers = {};
+	}
+
 	function selectSubAnswer(questionId: string, optionLabel: string, overrides: Record<string, unknown>) {
 		subAnswers = { ...subAnswers, [questionId]: optionLabel };
 		// Apply hardware overrides
@@ -154,6 +160,12 @@
 		softwareOptions = sw
 			? { ...sw.defaultOptions, ...(iface.software_option_overrides ?? {}) }
 			: {};
+	}
+
+	function unselectInterface() {
+		selectedInterface = null;
+		selectedSoftware = null;
+		softwareOptions = {};
 	}
 
 	// ── Command building ──────────────────────────────────────────────────────
@@ -193,7 +205,7 @@
 	}
 </script>
 
-<div class="mx-auto max-w-2xl space-y-6 px-4 py-10">
+<div class="mx-auto max-w-3xl space-y-6 px-4 py-10">
 	<header class="space-y-1">
 		<h1>Slurm Job Launcher</h1>
 		<p class="text-sm opacity-60">
@@ -289,47 +301,79 @@
 					<div class="flex flex-row flex-wrap gap-3">
 						{#each config.stages as stage (stage.id)}
 							{@const Icon = stageIcons[stage.id] ?? Zap}
-							<button
-								type="button"
-								class="card card-hover w-36 divide-y divide-surface-200-800 overflow-hidden border-[1px] preset-filled-surface-100-900
-									{selectedStage?.id === stage.id ? 'preset-outlined-primary-500' : 'border-surface-200-800'}"
-								onclick={() => selectStage(stage)}
+							{@const isSelected = selectedStage?.id === stage.id}
+							<div
+								class="relative h-44 w-40 shrink-0 transition-transform duration-200"
+								style={isSelected ? 'transform:scale(1.05); z-index:10;' : ''}
 							>
-								<article class="flex flex-col items-center gap-2 p-3">
-									<Icon class="h-6 w-6" />
-									<span class="text-center text-sm font-semibold">{stage.label}</span>
-								</article>
-								<footer class="px-3 py-1">
-									<small class="text-xs opacity-60">{stage.description}</small>
-								</footer>
-							</button>
+								<FlipCard flipped={isSelected}>
+									{#snippet front()}
+										<button
+											type="button"
+											class="card h-full w-full cursor-pointer overflow-hidden border border-surface-200-800 preset-filled-surface-100-900 hover:border-primary-400 dark:hover:border-primary-600"
+											onclick={() => selectStage(stage)}
+										>
+											<div class="flex h-full flex-col items-center justify-center gap-2 p-3">
+												<Icon class="h-7 w-7" />
+												<span class="text-center text-sm font-semibold">{stage.label}</span>
+												<span class="text-center text-[11px] leading-snug opacity-60"
+													>{stage.description}</span
+												>
+											</div>
+										</button>
+									{/snippet}
+									{#snippet back()}
+										<div
+											class="card flex h-full w-full flex-col overflow-hidden border preset-filled-surface-100-900 preset-outlined-primary-500"
+										>
+											<div
+												class="flex items-center justify-between border-b border-surface-200-800 px-3 py-2"
+											>
+												<span class="text-xs font-semibold">{stage.label}</span>
+												<button
+													type="button"
+													class="text-[10px] opacity-50 hover:opacity-100"
+													onclick={unselectStage}
+												>Change</button>
+											</div>
+											<div class="flex-1 overflow-y-auto p-2">
+												{#if stage.sub_questions?.length}
+													{#each stage.sub_questions as q (q.id)}
+														<p class="mb-1 text-[10px] font-medium opacity-70">{q.label}</p>
+														<div class="mb-2 flex flex-col gap-1">
+															{#each q.options as opt}
+																<button
+																	type="button"
+																	class="rounded px-2 py-1 text-left text-[10px] leading-tight {subAnswers[
+																		q.id
+																	] === opt.label
+																		? 'preset-filled-primary-500'
+																		: 'preset-tonal'}"
+																	onclick={() =>
+																		selectSubAnswer(
+																			q.id,
+																			opt.label,
+																			opt.hardware_overrides as Record<string, unknown>
+																		)}
+																>{opt.label}</button>
+															{/each}
+														</div>
+													{/each}
+												{:else}
+													<p class="text-[10px] leading-relaxed opacity-60">
+														{stage.hardware_defaults.cpus} CPUs · {stage.hardware_defaults
+															.ram_gb}GB RAM{stage.hardware_defaults.gpu
+															? ` · ${stage.hardware_defaults.gpu}`
+															: ''} · {stage.hardware_defaults.time}
+													</p>
+												{/if}
+											</div>
+										</div>
+									{/snippet}
+								</FlipCard>
+							</div>
 						{/each}
 					</div>
-
-					<!-- Sub-questions for the selected stage -->
-					{#if selectedStage?.sub_questions?.length}
-						<div class="space-y-4 border-t border-surface-200-800 pt-4">
-							{#each selectedStage.sub_questions as q (q.id)}
-								<div class="space-y-2">
-									<p class="text-sm font-medium">{q.label}</p>
-									<div class="flex flex-wrap gap-2">
-										{#each q.options as opt}
-											<button
-												type="button"
-												class="btn text-sm
-													{subAnswers[q.id] === opt.label
-													? 'preset-filled-primary-500'
-													: 'preset-tonal'}"
-												onclick={() => selectSubAnswer(q.id, opt.label, opt.hardware_overrides as Record<string, unknown>)}
-											>
-												{opt.label}
-											</button>
-										{/each}
-									</div>
-								</div>
-							{/each}
-						</div>
-					{/if}
 				{/if}
 			</section>
 		{/if}
@@ -350,31 +394,91 @@
 					<div class="flex flex-row flex-wrap gap-3">
 						{#each config.interfaces as iface (iface.id)}
 							{@const Icon = interfaceIcons[iface.id] ?? Terminal}
-							<button
-								type="button"
-								class="card card-hover w-36 divide-y divide-surface-200-800 overflow-hidden border-[1px] preset-filled-surface-100-900
-									{selectedInterface?.id === iface.id ? 'preset-outlined-primary-500' : 'border-surface-200-800'}"
-								onclick={() => selectInterface(iface)}
+							{@const isSelected = selectedInterface?.id === iface.id}
+							<div
+								class="relative h-48 w-40 shrink-0 transition-transform duration-200"
+								style={isSelected ? 'transform:scale(1.05); z-index:10;' : ''}
 							>
-								<article class="flex flex-col items-center gap-2 p-3">
-									<Icon class="h-6 w-6" />
-									<span class="text-center text-sm font-semibold">{iface.label}</span>
-								</article>
-								<footer class="px-3 py-1">
-									<small class="text-xs opacity-60">{iface.description}</small>
-								</footer>
-							</button>
+								<FlipCard flipped={isSelected}>
+									{#snippet front()}
+										<button
+											type="button"
+											class="card h-full w-full cursor-pointer overflow-hidden border border-surface-200-800 preset-filled-surface-100-900 hover:border-primary-400 dark:hover:border-primary-600"
+											onclick={() => selectInterface(iface)}
+										>
+											<div class="flex h-full flex-col items-center justify-center gap-2 p-3">
+												<Icon class="h-7 w-7" />
+												<span class="text-center text-sm font-semibold">{iface.label}</span>
+												<span class="text-center text-[11px] leading-snug opacity-60"
+													>{iface.description}</span
+												>
+											</div>
+										</button>
+									{/snippet}
+									{#snippet back()}
+										<div
+											class="card flex h-full w-full flex-col overflow-hidden border preset-filled-surface-100-900 preset-outlined-primary-500"
+										>
+											<div
+												class="flex items-center justify-between border-b border-surface-200-800 px-3 py-2"
+											>
+												<span class="text-xs font-semibold">{iface.label}</span>
+												<button
+													type="button"
+													class="text-[10px] opacity-50 hover:opacity-100"
+													onclick={unselectInterface}
+												>Change</button>
+											</div>
+											<div class="flex-1 overflow-y-auto p-2 space-y-2">
+												{#if iface.software_id === 'ssh'}
+													<div>
+														<p class="mb-0.5 text-[10px] opacity-60">Port</p>
+														<input
+															type="number"
+															class="input w-full px-2 py-0.5 text-xs"
+															min="1024"
+															max="65535"
+															bind:value={(softwareOptions as {port: number}).port}
+														/>
+													</div>
+													<div>
+														<p class="mb-0.5 text-[10px] opacity-60">Password</p>
+														<input
+															type="text"
+															class="input w-full px-2 py-0.5 text-xs"
+															placeholder="optional"
+															bind:value={(softwareOptions as {password: string}).password}
+														/>
+													</div>
+												{:else if iface.software_id === 'jupyter'}
+													<div>
+														<p class="mb-0.5 text-[10px] opacity-60">Port</p>
+														<input
+															type="number"
+															class="input w-full px-2 py-0.5 text-xs"
+															min="1024"
+															max="65535"
+															bind:value={(softwareOptions as {port: number}).port}
+														/>
+													</div>
+													<div>
+														<p class="mb-0.5 text-[10px] opacity-60">Directory</p>
+														<input
+															type="text"
+															class="input w-full px-2 py-0.5 font-mono text-xs"
+															bind:value={(softwareOptions as {dir: string}).dir}
+														/>
+													</div>
+												{:else}
+													<p class="text-[10px] leading-relaxed opacity-60">No extra options needed.</p>
+												{/if}
+											</div>
+										</div>
+									{/snippet}
+								</FlipCard>
+							</div>
 						{/each}
 					</div>
-
-					<!-- Software-specific options -->
-					{#if selectedSoftware}
-						{@const OptionsComponent = selectedSoftware.OptionsComponent}
-						<div class="border-t border-surface-200-800 pt-4">
-							<p class="mb-3 text-sm font-medium">Options</p>
-							<OptionsComponent options={softwareOptions} />
-						</div>
-					{/if}
 				{/if}
 			</section>
 		{/if}
