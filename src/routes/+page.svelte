@@ -67,6 +67,7 @@
 	// ── Global ────────────────────────────────────────────────────────────────
 	let debugMode = $state(false);
 	let settingsOpen = $state(false);
+	let sshAuthInfoOpen = $state(false);
 
 	// ── Lifecycle ─────────────────────────────────────────────────────────────
 	onMount(async () => {
@@ -194,7 +195,7 @@
 		},
 		container: {
 			image: baseimage,
-			mounts: containerMounts,
+			mounts: [containerMounts, ...(selectedInterface?.extra_mounts ?? [])].filter(Boolean).join(','),
 			writable: flags.writable,
 			remapRoot: flags.remaproot
 		},
@@ -467,14 +468,38 @@
 															/>
 														</div>
 														<div>
-															<p class="mb-0.5 text-[10px] opacity-60">Password</p>
-															<input
-																type="text"
-																class="input w-full px-2 py-0.5 text-xs"
-																placeholder="optional"
-																bind:value={(softwareOptions as {password: string}).password}
-															/>
+															<div class="mb-0.5 flex items-center justify-between">
+																<p class="text-[10px] opacity-60">Authentication</p>
+																<button
+																	type="button"
+																	class="text-[10px] opacity-40 hover:opacity-80"
+																	onclick={() => (sshAuthInfoOpen = !sshAuthInfoOpen)}
+																>ℹ</button>
+															</div>
+															<select
+																class="select w-full px-2 py-0.5 text-xs"
+																bind:value={(softwareOptions as {authentication: string}).authentication}
+															>
+																<option value="gitlab-keys">GitLab Public Keys</option>
+																<option value="password">Password</option>
+															</select>
+															{#if sshAuthInfoOpen}
+																<p class="mt-1 text-[10px] leading-relaxed opacity-70">
+																	<strong>GitLab Public Keys</strong>: log in the same way as on the SSH Gateway — no password needed.<br />
+																	<strong>Password</strong>: sets a root password so any SSH client can connect.
+																</p>
+															{/if}
 														</div>
+														{#if (softwareOptions as {authentication: string}).authentication === 'password'}
+															<div>
+																<p class="mb-0.5 text-[10px] opacity-60">Password</p>
+																<input
+																	type="text"
+																	class="input w-full px-2 py-0.5 font-mono text-xs"
+																	bind:value={(softwareOptions as {password: string}).password}
+																/>
+															</div>
+														{/if}
 													{:else if iface.software_id === 'jupyter'}
 														<div>
 															<p class="mb-0.5 text-[10px] opacity-60">Port</p>

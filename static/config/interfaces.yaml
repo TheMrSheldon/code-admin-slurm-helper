@@ -10,6 +10,9 @@ interfaces:
     description: Connect via SSH from any client or terminal
     software_id: ssh
     job_type: srun
+    extra_mounts:
+      - /bin/fetchgitlabkeys:/bin/fetchgitlabkeys
+      - /lib/libnss_gitlab.so.2:/lib/libnss_gitlab.so.2
     software_option_overrides:
       ready_message: "\\n\\033[1;32m=== SSH ready: root@{hostname} port {port} ===\\033[0m\\n\\n"
 
@@ -18,8 +21,10 @@ interfaces:
     description: Connect using the VSCode Remote SSH extension
     software_id: ssh
     job_type: srun
+    extra_mounts:
+      - /bin/fetchgitlabkeys:/bin/fetchgitlabkeys
+      - /lib/libnss_gitlab.so.2:/lib/libnss_gitlab.so.2
     software_option_overrides:
-      sftp: true
       ready_message: "\\n\\033[1;36mOpen in VSCode:\\033[0m vscode://vscode-remote/ssh-remote+root@{hostname}.medien.uni-weimar.de:{port}{home}\\n\\n"
 
   - id: pycharm
@@ -27,8 +32,10 @@ interfaces:
     description: Connect using PyCharm Remote Development (Gateway)
     software_id: ssh
     job_type: srun
+    extra_mounts:
+      - /bin/fetchgitlabkeys:/bin/fetchgitlabkeys
+      - /lib/libnss_gitlab.so.2:/lib/libnss_gitlab.so.2
     software_option_overrides:
-      sftp: true
       ready_message: "\\n\\033[1;32m=== SSH ready: root@{hostname} port {port} ===\\033[0m\\n\\n"
       pycharm_message: "\\n\\033[1;32m=== PyCharm Gateway ===\\033[0m\\n  Host: {hostname}.medien.uni-weimar.de  Port: {port}  User: root\\n\\n"
 

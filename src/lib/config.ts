@@ -35,6 +35,7 @@ export interface ClusterInterface {
 	software_id: string;
 	job_type: 'srun' | 'sbatch';
 	software_option_overrides?: Record<string, unknown>;
+	extra_mounts?: string[];
 }
 
 export interface AppConfig {
